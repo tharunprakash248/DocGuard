@@ -1,0 +1,28 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Cloud Document Guardian: Multi-tenant user isolation rules
+    match /documents/{documentId} {
+      // 1. Only allow authenticated users to read their own document records
+      allow read: if request.auth != null && request.auth.uid == resource.data.userId;
+
+      // 2. Allow authenticated users to create documents where the userId matches their auth UID
+      allow create: if request.auth != null 
+                    && request.resource.data.userId == request.auth.uid
+                    && request.resource.data.documentName is string;
+
+      // 3. Allow users to update their own documents (cannot change userId ownership)
+      allow update: if request.auth != null 
+                    && resource.data.userId == request.auth.uid
+                    && request.resource.data.userId == request.auth.uid;
+
+      // 4. Allow users to delete only their own documents
+      allow delete: if request.auth != null && resource.data.userId == request.auth.uid;
+    }
+
+    // Default deny for all other collections
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
